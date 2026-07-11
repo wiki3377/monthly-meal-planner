@@ -12,9 +12,11 @@
     button, input { border: 1px solid #cbd6cd; border-radius: 8px; font: inherit; padding: 9px 12px; } button { background: #2d704e; color: white; cursor: pointer; } button:hover { background: #22563c; }
     button.secondary { background: white; color: #2d704e; } .calendar { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 10px; }
     article { min-height: 146px; padding: 11px; background: white; border: 1px solid #e0e6df; border-radius: 10px; } h2 { font-size: 1rem; margin: 0 0 10px; } small { color: #78847b; font-weight: normal; }
+    .weekdays, .calendar { display: grid; grid-template-columns: repeat(7, minmax(105px, 1fr)); gap: 10px; min-width: 805px; } .weekdays { margin-bottom: 8px; } .weekdays div { color: #627267; font-size: .82rem; font-weight: 700; text-align: center; }
+    .calendar-wrap { overflow-x: auto; padding-bottom: 4px; } .empty { background: transparent; border: 0; }
     .meal { display: block; width: 100%; margin: 5px 0; padding: 7px; color: #304137; background: #eef5ee; border: 0; text-align: left; font-size: .82rem; } .meal span { color: #337653; display: inline-block; font-weight: 700; margin-right: 7px; }
     .auth { max-width: 430px; margin-top: 10vh; } .auth input { display: block; width: 100%; margin: 12px 0; } .notice { color: #a63b2d; } .hint { color: #66756b; line-height: 1.7; }
-    @media (max-width: 850px) { .calendar { grid-template-columns: repeat(2, 1fr); } } @media (max-width: 460px) { .calendar { grid-template-columns: 1fr; } }
+    @media (max-width: 850px) { main { padding-inline: 14px; } }
   </style>
 </head>
 <body>
@@ -55,7 +57,10 @@
         }).join('');
         return `<article><h2>${date.getDate()} <small>${['日','月','火','水','木','金','土'][date.getDay()]}</small></h2>${meals}</article>`;
       }).join('');
-      app.innerHTML = `<header><div><h1>月間献立</h1><p>${escapeHtml(user.email || '')}</p></div><button class="secondary" id="logout">ログアウト</button></header><nav><button id="previous">←</button><strong>${month.getFullYear()}年${month.getMonth() + 1}月</strong><button id="next">→</button></nav><section class="calendar">${cells}</section>${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ''}`;
+      const firstDayOffset = (days()[0].getDay() + 6) % 7; // 月曜=0、日曜=6
+      const blanks = '<div class="empty"></div>'.repeat(firstDayOffset);
+      const weekdayNames = ['月', '火', '水', '木', '金', '土', '日'].map(day => `<div>${day}</div>`).join('');
+      app.innerHTML = `<header><div><h1>月間献立</h1><p>${escapeHtml(user.email || '')}</p></div><button class="secondary" id="logout">ログアウト</button></header><nav><button id="previous">←</button><strong>${month.getFullYear()}年${month.getMonth() + 1}月</strong><button id="next">→</button></nav><div class="calendar-wrap"><section class="weekdays">${weekdayNames}</section><section class="calendar">${blanks}${cells}</section></div>${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ''}`;
       document.querySelector('#logout').onclick = () => client.auth.signOut();
       document.querySelector('#previous').onclick = async () => { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); await refresh(user); };
       document.querySelector('#next').onclick = async () => { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); await refresh(user); };
