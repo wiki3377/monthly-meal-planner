@@ -1,106 +1,25 @@
 <!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>月間献立</title>
-  <style>
-    :root { color: #26352c; background: #f7f7f2; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-    * { box-sizing: border-box; } body { margin: 0; } main { max-width: 1120px; margin: auto; padding: 28px 18px; }
-    header, nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; } h1 { font-size: 1.8rem; margin: 0; }
-    header p { color: #66756b; margin: 4px 0 0; font-size: .9rem; } nav { justify-content: center; margin: 24px 0; } nav strong { min-width: 132px; text-align: center; }
-    button, input { border: 1px solid #cbd6cd; border-radius: 8px; font: inherit; padding: 9px 12px; } button { background: #2d704e; color: white; cursor: pointer; } button:hover { background: #22563c; }
-    button.secondary { background: white; color: #2d704e; } .calendar { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 10px; }
-    article { min-height: 146px; padding: 11px; background: white; border: 1px solid #e0e6df; border-radius: 10px; } h2 { font-size: 1rem; margin: 0 0 10px; } small { color: #78847b; font-weight: normal; }
-    .weekdays, .calendar { display: grid; grid-template-columns: repeat(7, minmax(105px, 1fr)); gap: 10px; min-width: 805px; } .weekdays { margin-bottom: 8px; } .weekdays div { color: #627267; font-size: .82rem; font-weight: 700; text-align: center; }
-    .calendar-wrap { overflow-x: auto; padding-bottom: 4px; } .empty { background: transparent; border: 0; }
-    .meal-row { display: flex; gap: 4px; margin: 5px 0; } .meal { display: block; flex: 1; width: 100%; padding: 7px; color: #304137; background: #eef5ee; border: 0; text-align: left; font-size: .82rem; } .meal span { color: #337653; display: inline-block; font-weight: 700; margin-right: 7px; }
-    .delete { flex: 0 0 auto; padding: 4px 8px; background: #fff0ee; color: #a33d30; border: 0; font-size: 1rem; line-height: 1; }
-    .auth { max-width: 430px; margin-top: 10vh; } .auth input { display: block; width: 100%; margin: 12px 0; } .notice { color: #a63b2d; } .hint { color: #66756b; line-height: 1.7; }
-    @media (max-width: 850px) { main { padding-inline: 14px; } }
-  </style>
-</head>
-<body>
-  <main id="app"></main>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    // Supabase の Connect 画面にある2つの値を貼り付けます。
-    const SUPABASE_URL = 'https://pdeidguheiufyxlqjgub.supabase.co';
-    const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_KNnbVMNxaLmbwD1cynPXNw_uBXL2qPV';
-    const configured = !SUPABASE_URL.startsWith('PASTE_') && !SUPABASE_PUBLISHABLE_KEY.startsWith('PASTE_');
-    const client = configured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
-    const app = document.querySelector('#app');
-    const labels = { snack: 'おやつ', lunch: '昼', dinner: '夜', night2: '夜2' };
-    let month = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    let plans = [];
-
-    const dateKey = date => date.toISOString().slice(0, 10);
-    const escapeHtml = text => String(text).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
-    const days = () => Array.from({ length: new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate() }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index + 1));
-
-    function showSetup() {
-      app.innerHTML = `<section class="auth"><h1>月間献立</h1><p class="hint">このファイルの <code>SUPABASE_URL</code> と <code>SUPABASE_PUBLISHABLE_KEY</code> に、Supabase の Connect 画面にある値を貼り付けてください。</p></section>`;
-    }
-
-    async function loadPlans() {
-      const list = days();
-      const { data, error } = await client.from('meal_plans').select('*').gte('meal_date', dateKey(list[0])).lte('meal_date', dateKey(list.at(-1))).order('meal_date');
-      plans = data || [];
-      if (error) console.error(error.message);
-    }
-
-    function render(user, notice = '') {
-      const cells = days().map(date => {
-        const key = dateKey(date);
-        const meals = Object.entries(labels).map(([type, label]) => {
-          const plan = plans.find(item => item.meal_date === key && item.meal_type === type);
-          return plan
-            ? `<div class="meal-row"><button class="meal" data-date="${key}" data-type="${type}"><span>${label}</span>${escapeHtml(plan.menu_name)}</button><button class="delete" data-id="${plan.id}" aria-label="${label}の献立を削除">×</button></div>`
-            : `<div class="meal-row"><button class="meal" data-date="${key}" data-type="${type}"><span>${label}</span>＋ 追加</button></div>`;
-        }).join('');
-        return `<article><h2>${date.getDate()} <small>${['日','月','火','水','木','金','土'][date.getDay()]}</small></h2>${meals}</article>`;
-      }).join('');
-      const firstDayOffset = (days()[0].getDay() + 6) % 7; // 月曜=0、日曜=6
-      const blanks = '<div class="empty"></div>'.repeat(firstDayOffset);
-      const weekdayNames = ['月', '火', '水', '木', '金', '土', '日'].map(day => `<div>${day}</div>`).join('');
-      app.innerHTML = `<header><div><h1>月間献立</h1><p>${escapeHtml(user.email || '')}</p></div><button class="secondary" id="logout">ログアウト</button></header><nav><button id="previous">←</button><strong>${month.getFullYear()}年${month.getMonth() + 1}月</strong><button id="next">→</button></nav><div class="calendar-wrap"><section class="weekdays">${weekdayNames}</section><section class="calendar">${blanks}${cells}</section></div>${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ''}`;
-      document.querySelector('#logout').onclick = () => client.auth.signOut();
-      document.querySelector('#previous').onclick = async () => { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); await refresh(user); };
-      document.querySelector('#next').onclick = async () => { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); await refresh(user); };
-      document.querySelectorAll('.meal').forEach(button => button.onclick = () => addMeal(user, button.dataset.date, button.dataset.type));
-      document.querySelectorAll('.delete').forEach(button => button.onclick = () => deleteMeal(user, button.dataset.id));
-    }
-
-    async function refresh(user) { await loadPlans(); render(user); }
-    async function addMeal(user, mealDate, mealType) {
-      const current = plans.find(item => item.meal_date === mealDate && item.meal_type === mealType);
-      const menuName = prompt(`${mealDate}（${labels[mealType]}）の献立`, current?.menu_name || '');
-      if (!menuName || !menuName.trim()) return;
-      const { error } = await client.from('meal_plans').upsert({ user_id: user.id, meal_date: mealDate, meal_type: mealType, menu_name: menuName.trim() }, { onConflict: 'user_id,meal_date,meal_type' });
-      if (error) return render(user, error.message);
-      await refresh(user);
-    }
-
-    async function deleteMeal(user, id) {
-      if (!confirm('この献立を削除しますか？')) return;
-      const { error } = await client.from('meal_plans').delete().eq('id', id);
-      if (error) return render(user, error.message);
-      await refresh(user);
-    }
-
-    function showAuth(notice = '') {
-      app.innerHTML = `<section class="auth"><h1>月間献立</h1><p class="hint">ログインすれば、複数のブラウザから同じ献立を確認できます。</p><input id="email" type="email" placeholder="メールアドレス" /><input id="password" type="password" placeholder="パスワード（6文字以上）" /><div><button id="sign-in">ログイン</button> <button class="secondary" id="sign-up">新規登録</button></div>${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ''}</section>`;
-      document.querySelector('#sign-in').onclick = async () => { const { error } = await client.auth.signInWithPassword({ email: email.value, password: password.value }); if (error) showAuth(error.message); };
-      document.querySelector('#sign-up').onclick = async () => { const { error } = await client.auth.signUp({ email: email.value, password: password.value }); showAuth(error ? error.message : '確認メールを送信しました。メール内のリンクを開いてください。'); };
-    }
-
-    async function start() {
-      if (!client) return showSetup();
-      const { data } = await client.auth.getUser();
-      if (data.user) await refresh(data.user); else showAuth();
-      client.auth.onAuthStateChange(async (_event, session) => { if (session?.user) await refresh(session.user); else showAuth(); });
-    }
-    start();
-  </script>
-</body>
-</html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>月間献立</title>
+<style>
+body{margin:0;background:#f7f7f2;color:#26352c;font-family:system-ui,sans-serif}main{max-width:1120px;margin:auto;padding:24px}button,input,select,textarea{font:inherit;padding:9px;border:1px solid #cbd6cd;border-radius:8px}button{background:#2d704e;color:#fff;cursor:pointer}.sub{background:#fff;color:#2d704e}header,nav{display:flex;justify-content:space-between;align-items:center;gap:10px}h1{margin:0;font-size:1.7rem}.tools{display:flex;gap:7px;flex-wrap:wrap}.wrap{overflow-x:auto}.week,.calendar{display:grid;grid-template-columns:repeat(7,minmax(105px,1fr));gap:8px;min-width:790px}.week{margin:18px 0 6px;color:#627267;text-align:center;font-weight:bold}.day{min-height:150px;padding:10px;background:#fff;border:1px solid #e0e6df;border-radius:10px}.day h2{margin:0 0 8px;font-size:1rem}.row{display:flex;gap:4px;margin:5px 0}.meal{flex:1;text-align:left;background:#eef5ee;color:#304137;border:0}.meal b{color:#337653;margin-right:6px}.delete{background:#fff0ee;color:#a33d30;border:0}.panel{max-width:620px;margin:7vh auto}.panel input,.panel select,.panel textarea{box-sizing:border-box;display:block;width:100%;margin:10px 0}.panel textarea{min-height:140px}.hint{color:#66756b;line-height:1.7}.error{color:#a63b2d}.shopping{max-width:620px;margin:30px auto;padding:22px;background:#fff;border:1px solid #e0e6df;border-radius:12px}.shopping li{padding:8px 0;border-bottom:1px solid #edf0ed}@media(max-width:600px){main{padding:14px}}
+</style></head><body><main id="app"></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://pdeidguheiufyxlqjgub.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_KNnbVMNxaLmbwD1cynPXNw_uBXL2qPV';
+const db=SUPABASE_URL.startsWith('PASTE_')?null:window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const app=document.querySelector('#app'), labels={snack:'おやつ',lunch:'昼',dinner:'夜',night2:'夜2'};
+let month=new Date(new Date().getFullYear(),new Date().getMonth(),1),plans=[],recipes=[];
+const ymd=d=>d.toISOString().slice(0,10), esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const monthDays=()=>Array.from({length:new Date(month.getFullYear(),month.getMonth()+1,0).getDate()},(_,i)=>new Date(month.getFullYear(),month.getMonth(),i+1));
+async function reload(user){const ds=monthDays();const [a,b]=await Promise.all([db.from('meal_plans').select('*').gte('meal_date',ymd(ds[0])).lte('meal_date',ymd(ds.at(-1))).order('meal_date'),db.from('recipes').select('*').order('name')]);plans=a.data||[];recipes=b.data||[];showCalendar(user,a.error?.message||b.error?.message)}
+function head(user){return `<header><div><h1>月間献立</h1><small>${esc(user.email)}</small></div><div class="tools"><button class="sub" id="new-recipe">料理を登録</button><button class="sub" id="week-list">今週の材料</button><button class="sub" id="logout">ログアウト</button></div></header>`}
+function bindHead(user){document.querySelector('#new-recipe').onclick=()=>recipeForm(user);document.querySelector('#week-list').onclick=()=>weekList(user);document.querySelector('#logout').onclick=()=>db.auth.signOut()}
+function showCalendar(user,error=''){const ds=monthDays(),blank=(ds[0].getDay()+6)%7;const cards=ds.map(d=>{const date=ymd(d);const rows=Object.entries(labels).map(([type,label])=>{const p=plans.find(x=>x.meal_date===date&&x.meal_type===type);return p?`<div class="row"><button class="meal" data-date="${date}" data-type="${type}"><b>${label}</b>${esc(p.menu_name)}</button><button class="delete" data-delete="${p.id}">×</button></div>`:`<div class="row"><button class="meal" data-date="${date}" data-type="${type}"><b>${label}</b>＋ 追加</button></div>`}).join('');return `<section class="day"><h2>${d.getDate()} <small>${['日','月','火','水','木','金','土'][d.getDay()]}</small></h2>${rows}</section>`}).join('');app.innerHTML=head(user)+`<nav><button id="prev">←</button><strong>${month.getFullYear()}年${month.getMonth()+1}月</strong><button id="next">→</button></nav><div class="wrap"><div class="week">${['月','火','水','木','金','土','日'].map(x=>`<div>${x}</div>`).join('')}</div><div class="calendar">${'<div></div>'.repeat(blank)}${cards}</div></div>${error?`<p class="error">${esc(error)}</p>`:''}`;bindHead(user);document.querySelector('#prev').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()-1,1);reload(user)};document.querySelector('#next').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()+1,1);reload(user)};document.querySelectorAll('.meal').forEach(x=>x.onclick=()=>mealForm(user,x.dataset.date,x.dataset.type));document.querySelectorAll('[data-delete]').forEach(x=>x.onclick=()=>deleteMeal(user,x.dataset.delete))}
+function mealForm(user,date,type){const old=plans.find(x=>x.meal_date===date&&x.meal_type===type);const opts=`<option value="">登録料理を選ばない（自由入力）</option>`+recipes.map(r=>`<option value="${r.id}" ${old?.recipe_id===r.id?'selected':''}>${esc(r.name)}</option>`).join('');app.innerHTML=`<div class="panel"><h1>${date}・${labels[type]}</h1><p class="hint">登録済みの料理を選ぶか、料理名を自由に入力します。</p><label>登録料理<select id="recipe-id">${opts}</select></label><label>自由入力の料理名<input id="menu-name" value="${esc(old?.recipe_id?'':old?.menu_name||'')}" placeholder="例：残りもの"></label><button id="save">保存</button> <button class="sub" id="back">戻る</button><p id="err" class="error"></p></div>`;document.querySelector('#back').onclick=()=>reload(user);document.querySelector('#save').onclick=async()=>{const id=document.querySelector('#recipe-id').value,r=recipes.find(x=>x.id===id),name=r?r.name:document.querySelector('#menu-name').value.trim();if(!name)return document.querySelector('#err').textContent='料理を選ぶか、名前を入力してください。';const q=await db.from('meal_plans').upsert({user_id:user.id,meal_date:date,meal_type:type,menu_name:name,recipe_id:id||null},{onConflict:'user_id,meal_date,meal_type'});if(q.error)document.querySelector('#err').textContent=q.error.message;else reload(user)}}
+async function deleteMeal(user,id){if(!confirm('この献立を削除しますか？'))return;const q=await db.from('meal_plans').delete().eq('id',id);reload(user);if(q.error)showCalendar(user,q.error.message)}
+function recipeForm(user){app.innerHTML=`<div class="panel"><h1>料理を登録</h1><p class="hint">食材は1行に1つ、<b>食材名, 数量, 単位</b> の順で入力します。<br>例：玉ねぎ, 1, 個<br>例：しょうゆ, 2, 大さじ</p><input id="recipe-name" placeholder="料理名（例：カレー）"><textarea id="ingredients" placeholder="玉ねぎ, 1, 個\n+にんじん, 2, 本\n+豚肉, 300, g"></textarea><button id="save-recipe">登録</button> <button id="back" class="sub">戻る</button><p id="err" class="error"></p></div>`;document.querySelector('#back').onclick=()=>reload(user);document.querySelector('#save-recipe').onclick=async()=>{const name=document.querySelector('#recipe-name').value.trim();if(!name)return document.querySelector('#err').textContent='料理名を入力してください。';const q=await db.from('recipes').insert({user_id:user.id,name}).select().single();if(q.error)return document.querySelector('#err').textContent=q.error.message;const rows=document.querySelector('#ingredients').value.split('\n').map(s=>s.trim()).filter(Boolean).map(line=>{const [ingredient_name,quantity,unit]=line.split(/[,，]/).map(s=>s.trim());return{recipe_id:q.data.id,ingredient_name,quantity:quantity?Number(quantity):null,unit:unit||null}}).filter(x=>x.ingredient_name);if(rows.length){const k=await db.from('recipe_ingredients').insert(rows);if(k.error)return document.querySelector('#err').textContent=k.error.message}reload(user)}}
+async function weekList(user){const today=new Date(),monday=new Date(today);monday.setDate(today.getDate()-(today.getDay()+6)%7);const sunday=new Date(monday);sunday.setDate(monday.getDate()+6);const q=await db.from('meal_plans').select('recipe_id').gte('meal_date',ymd(monday)).lte('meal_date',ymd(sunday)).not('recipe_id','is',null);if(q.error)return showCalendar(user,q.error.message);const ids=[...new Set((q.data||[]).map(x=>x.recipe_id))];let rows=[];if(ids.length){const r=await db.from('recipe_ingredients').select('ingredient_name,quantity,unit').in('recipe_id',ids);if(r.error)return showCalendar(user,r.error.message);const sum={};(r.data||[]).forEach(x=>{const k=x.ingredient_name+'__'+(x.unit||'');if(!sum[k])sum[k]={...x,quantity:0,has:false};if(x.quantity!==null){sum[k].quantity+=Number(x.quantity);sum[k].has=true}});rows=Object.values(sum)}const list=rows.length?rows.map(x=>`<li>${esc(x.ingredient_name)}${x.has?'：'+x.quantity+(x.unit?esc(x.unit):''):x.unit?'：'+esc(x.unit):''}</li>`).join(''):'<li>今週、登録料理に設定された献立はありません。</li>';app.innerHTML=head(user)+`<section class="shopping"><h2>今週の材料</h2><p>${ymd(monday)} 〜 ${ymd(sunday)}</p><ul>${list}</ul><button id="back" class="sub">カレンダーへ戻る</button></section>`;bindHead(user);document.querySelector('#back').onclick=()=>reload(user)}
+function auth(msg=''){app.innerHTML=`<div class="panel"><h1>月間献立</h1><input id="email" type="email" placeholder="メールアドレス"><input id="password" type="password" placeholder="パスワード（6文字以上）"><button id="login">ログイン</button> <button id="signup" class="sub">新規登録</button><p class="error">${esc(msg)}</p></div>`;document.querySelector('#login').onclick=async()=>{const r=await db.auth.signInWithPassword({email:email.value,password:password.value});if(r.error)auth(r.error.message)};document.querySelector('#signup').onclick=async()=>{const r=await db.auth.signUp({email:email.value,password:password.value});auth(r.error?r.error.message:'確認メールを送信しました。')}}
+async function start(){if(!db){app.innerHTML='<div class="panel"><h1>月間献立</h1><p>Supabase の接続情報を設定してください。</p></div>';return}const r=await db.auth.getUser();if(r.data.user)reload(r.data.user);else auth();db.auth.onAuthStateChange((_,s)=>s?.user?reload(s.user):auth())}start();
+</script></body></html>
