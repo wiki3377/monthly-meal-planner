@@ -30,7 +30,7 @@
     const configured = !SUPABASE_URL.startsWith('PASTE_') && !SUPABASE_PUBLISHABLE_KEY.startsWith('PASTE_');
     const client = configured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
     const app = document.querySelector('#app');
-    const labels = { breakfast: '朝', lunch: '昼', dinner: '夜' };
+    const labels = { snack: 'おやつ', lunch: '昼', dinner: '夜', night2: '夜2' };
     let month = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let plans = [];
 
